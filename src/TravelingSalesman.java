@@ -20,13 +20,26 @@ public class TravelingSalesman {
     static FileWriter resultsFile;
     static PrintWriter resultsWriter;
 
+    //size of matrix's x and y
+    static int n = 7;
+    //cost matrix
+    static int matrix[][] = {
+        {0,2,5,3,7,5,3},
+        {2,0,5,3,2,1,6},
+        {5,5,0,3,8,1,2},
+        {3,3,3,0,7,4,2},
+        {7,2,8,7,0,2,3},
+        {5,1,1,4,2,0,2},
+        {2,6,2,2,3,2,0}};
+    static int VISITED_ALL = (1<<n) -1;
+    static int dp[][] = new int[n][n];
 
     public static void main(String[] args) {
 
         // run the whole experiment at least twice, and expect to throw away the data from the earlier runs, before java has fully optimized
-        runFullExperiment("Brute-Exp1-ThrowAway.txt");
-        runFullExperiment("Brute-Exp2.txt");
-        runFullExperiment("Brute-Exp3.txt");
+        runFullExperiment("BruteTSP-Exp1-ThrowAway.txt");
+        runFullExperiment("BruteTSP-Exp2.txt");
+        runFullExperiment("BruteTSP-Exp3.txt");
     }
 
     static void runFullExperiment(String resultsFileName){
@@ -40,7 +53,7 @@ public class TravelingSalesman {
         }
 
         ThreadCpuStopWatch BatchStopwatch = new ThreadCpuStopWatch(); // for timing an entire set of trials
-        ThreadCpuStopWatch TrialStopwatch = new ThreadCpuStopWatch(); // for timing an individual trial
+        ThreadCpuStopWatch TrialStopwatch = new ThreadCpuStopWatch(); // for timing an individual trials
 
         resultsWriter.println("#InputSize    AverageTime"); // # marks a comment in gnuplot data
         resultsWriter.flush();
@@ -49,6 +62,8 @@ public class TravelingSalesman {
             // progress message...
             System.out.println("Running test for input size "+inputSize+" ... ");
 
+            //generate a random matrix
+            //int randomMatrix[][] = generateRandomCostMatrix(n,n);
 
             /* repeat for desired number of trials (for a specific size of input)... */
             long batchElapsedTime = 0;
@@ -58,7 +73,7 @@ public class TravelingSalesman {
             System.out.print("    Generating test data...");
 
             //generate random cost matrix, max cost size of 20
-            int matrix[][] = costMatrix(inputSize,inputSize);
+            //int matrix[][] = costMatrix(inputSize,inputSize);
 
             System.out.println("...done.");
             System.out.print("    Running trial batch...");
@@ -82,7 +97,9 @@ public class TravelingSalesman {
                 //TrialStopwatch.start(); // *** uncomment this line if timing trials individually
                 /* run the function we're testing on the trial input */
 
-                int brute[] = bruteForce(matrix,inputSize);
+                int brute = TspBrute(matrix, 0);
+                //int dynamic = TspDynamic(1,0);
+                //int greedy[] = TspGreedy(matrix, n);
 
 
                 // batchElapsedTime = batchElapsedTime + TrialStopwatch.elapsedTime(); // *** uncomment this line if timing trials individually
@@ -98,7 +115,7 @@ public class TravelingSalesman {
     }
 
     //generate random cost matrix
-    public static int[][] costMatrix(int a, int b){
+    public static int[][] generateRandomCostMatrix(int a, int b){
         int M[][] = new int[a][b];
 
         for(int i = 0; i < a; i++){
@@ -115,14 +132,71 @@ public class TravelingSalesman {
         return M;
     }
 
-    public static int[] bruteForce(int M[][],int size){
+    public static int TspBrute(int graph[][], int s)
+    {
+        // store all vertex apart from source vertex
+        int[] vertex = new int[n+1];
+        for (int i = 0; i < n; i++)
+            if (i != s)
+                vertex[i]=i;
+
+        // store minimum weight Hamiltonian Cycle.
+        int min_path = MAXINPUTSIZE;
+        do {
+
+            // store current Path weight(cost)
+            int current_pathweight = 0;
+
+            // compute current path weight
+            int k = s;
+            for (int i = 0; i < vertex.length; i++) {
+                current_pathweight += graph[k][vertex[i]];
+                k = vertex[i];
+            }
+            current_pathweight += graph[k][s];
+
+            // update minimum
+            min_path = Math.min(min_path, current_pathweight);
+
+            vertex[n] = vertex[0];
+        } while (vertex[0] != vertex[n]);
+
+        return min_path;
+    }
+
+    public static int TspDynamic(int mask,int pos){
+
+        if(mask==VISITED_ALL){
+            return matrix[pos][0];
+        }
+        if(dp[mask][pos]!=-1){
+            return dp[mask][pos];
+        }
+
+        //Now from current node, we will try to go to every other node and take the min ans
+        int ans = 999999;
+
+        //Visit all the unvisited cities and take the best route
+        for(int city=0;city<n;city++){
+
+            if((mask&(1<<city))==0){
+
+                int newAns = matrix[pos][city] + TspDynamic( mask|(1<<city), city);
+                ans = Math.min(ans, newAns);
+            }
+
+        }
+
+        return dp[mask][pos] = ans;
+    }
+
+    public static int[] TspGreedy(int M[][],int size){
         int[] V = new int[size];
 
         //fill V with large garbage values
         for(int i = 0; i < size;i++)
-            V[i] = 99;
+            V[i] = 99999;
 
-        //find optimul route
         for(int i = 0; i < size; i++){
             for(int j = 0; j < size; j++){
                 if(M[i][j] < V[i]){
